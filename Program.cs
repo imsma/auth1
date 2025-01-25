@@ -1,11 +1,16 @@
+using auth1;
 using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDataProtection();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuthService>();
 
 
 var app = builder.Build();
+
+
 
 app.MapGet("/username", (HttpContext ctx, IDataProtectionProvider idp) =>
 {
@@ -19,11 +24,9 @@ app.MapGet("/username", (HttpContext ctx, IDataProtectionProvider idp) =>
     return user;
 });
 
-app.MapGet("/login", (HttpContext ctx, IDataProtectionProvider idp) =>
+app.MapGet("/login", (AuthService authService) =>
 {
-    var protector = idp.CreateProtector("auth-cookie");
-    // ctx.Response.Headers["set-cookie"] = "auth=usr:sma";
-    ctx.Response.Headers["set-cookie"] = $"auth={protector.Protect("usr:sma")}";
+    authService.SignIn();
     return "ok";
 });
 
