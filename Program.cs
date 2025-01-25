@@ -13,12 +13,35 @@ var app = builder.Build();
 
 app.UseAuthentication();
 
+app.Use((ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/login"))
+    {
+        return next();
+    }
+
+    if (!ctx.User.Identities.Any(x => x.AuthenticationType == AuthSchme))
+    {
+        ctx.Response.StatusCode = 401;
+        return Task.CompletedTask;
+    }
+
+    if (!ctx.User.HasClaim("passport-type", "eur"))
+    {
+        ctx.Response.StatusCode = 403;
+        return Task.CompletedTask;
+    }
+
+    return next();
+});
+
 app.MapGet("/login", async (HttpContext ctx) =>
 {
 
     var claims = new List<Claim>
     {
-        new Claim("usr", "sma")
+        new Claim("usr", "sma"),
+        new Claim("passport-type", "eur")
     };
 
     var identity = new ClaimsIdentity(claims, AuthSchme);
@@ -35,9 +58,51 @@ app.MapGet("/unsecure", (HttpContext ctx) =>
     var username = user.FindFirst("usr")?.Value ?? "Anonymous";
 
     return username;
-
 });
 
+app.MapGet("/sweden", (HttpContext ctx) =>
+{
+    return "Allowed";
+});
+
+
+app.MapGet("/norway", (HttpContext ctx) =>
+{
+    // var isLoggedIn = ctx.User.Identities.Any(x => x.AuthenticationType == AuthSchme);
+    // if (!isLoggedIn)
+    // {
+    //     ctx.Response.StatusCode = 401;
+    //     return "";
+    // }
+
+    // var isEuropean = ctx.User.HasClaim("passport-type", "nor");
+    // if (!isEuropean)
+    // {
+    //     ctx.Response.StatusCode = 403;
+    //     return "";
+    // }
+
+    return "Allowed";
+});
+
+app.MapGet("/denmark", (HttpContext ctx) =>
+{
+    // var isLoggedIn = ctx.User.Identities.Any(x => x.AuthenticationType == AuthSchme);
+    // if (!isLoggedIn)
+    // {
+    //     ctx.Response.StatusCode = 401;
+    //     return "";
+    // }
+
+    // var isEuropean = ctx.User.HasClaim("passport-type", "eur");
+    // if (!isEuropean)
+    // {
+    //     ctx.Response.StatusCode = 403;
+    //     return "";
+    // }
+
+    return "Allowed";
+});
 
 
 
