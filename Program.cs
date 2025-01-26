@@ -1,5 +1,7 @@
+using System.Net;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 
 const string AuthSchme = "cookie";
 
@@ -8,32 +10,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAuthentication(AuthSchme)
         .AddCookie(AuthSchme);
 
+builder.Services.AddAuthorization(builder =>
+{
+    builder.AddPolicy("European", policy =>
+    {
+        policy.RequireAuthenticatedUser()
+        .AddAuthenticationSchemes(AuthSchme)
+        .RequireClaim("passport-type", "eur");
+    });
+});
 
 var app = builder.Build();
 
 app.UseAuthentication();
-
-app.Use((ctx, next) =>
-{
-    if (ctx.Request.Path.StartsWithSegments("/login"))
-    {
-        return next();
-    }
-
-    if (!ctx.User.Identities.Any(x => x.AuthenticationType == AuthSchme))
-    {
-        ctx.Response.StatusCode = 401;
-        return Task.CompletedTask;
-    }
-
-    if (!ctx.User.HasClaim("passport-type", "eur"))
-    {
-        ctx.Response.StatusCode = 403;
-        return Task.CompletedTask;
-    }
-
-    return next();
-});
+app.UseAuthorization();
 
 app.MapGet("/login", async (HttpContext ctx) =>
 {
@@ -49,7 +39,7 @@ app.MapGet("/login", async (HttpContext ctx) =>
 
     await ctx.SignInAsync(AuthSchme, user);
 
-});
+}).AllowAnonymous();
 
 
 app.MapGet("/unsecure", (HttpContext ctx) =>
@@ -63,7 +53,7 @@ app.MapGet("/unsecure", (HttpContext ctx) =>
 app.MapGet("/sweden", (HttpContext ctx) =>
 {
     return "Allowed";
-});
+}).RequireAuthorization("European");
 
 
 app.MapGet("/norway", (HttpContext ctx) =>
@@ -109,3 +99,22 @@ app.MapGet("/denmark", (HttpContext ctx) =>
 
 
 app.Run();
+
+public class MyRequirement : IAuthorizationRequirement
+{
+    public MyRequirement() { }
+
+}
+
+public class MyRequirementHandler : AuthorizationHandler<MyRequirement>
+{
+    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, MyRequirement requirement)
+    {
+        if (context.User.HasClaim("passport-type", "eur"))
+        {
+            context.Succeed(requirement);
+        }
+
+        return Task.CompletedTask;
+    }
+}
